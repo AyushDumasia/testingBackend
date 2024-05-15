@@ -9,7 +9,11 @@ const saltRounds = 10;
 import { getMail } from "../utils/nodemailer.js";
 import DailyUser from "../models/dailyActive.schema.js";
 import Merchant from "./../models/merchant.schema.js";
-import { ApiError } from "./../utils/apiError.js";
+
+// Define a new error handler function
+const handleError = (res, statusCode, message) => {
+  res.status(statusCode).json({ error: { message } });
+};
 
 const countUser = async () => {
   const date = new Date().toISOString().split("T")[0];
@@ -31,7 +35,10 @@ const countUser = async () => {
 export const signUp = asyncHandler(async (req, res) => {
   const { username, email, phone, sex, password } = req?.body;
   const validEmail = await User.findOne({ email: email });
-  if (validEmail) throw new ApiError(409, "Email already in use");
+  if (validEmail) {
+    handleError(res, 409, "Email already in use");
+    return;
+  }
 
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -89,7 +96,8 @@ export const logIn = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email: email });
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new ApiError(401, "Invalid Details");
+    handleError(res, 401, "Invalid Details");
+    return;
   }
 
   const accessToken = jwt.sign(
@@ -128,7 +136,8 @@ export const logOut = asyncHandler(async (req, res) => {
 export const getUserInfo = asyncHandler(async (req, res) => {
   const user = req?.user;
   if (!user) {
-    return res.status(404).json({ message: "User not found in request" });
+    handleError(res, 404, "User not found in request");
+    return;
   }
   const isMerchant = await Merchant.findOne({ merchant: user.id });
   if (!isMerchant) {
@@ -138,7 +147,8 @@ export const getUserInfo = asyncHandler(async (req, res) => {
   const order = await Order.find({ userId: user.id }).populate("productId");
   const address = await Address.find({ userId: user.id });
   if (!findUser) {
-    return res.status(404).json({ message: "User not found" });
+    handleError(res, 404, "User not found");
+    return;
   }
   res.status(200).json({
     user: findUser,
@@ -159,7 +169,8 @@ export const updateUser = asyncHandler(async (req, res) => {
     { new: true }
   );
   if (!updateUser) {
-    return res.status(404).json({ message: "User not found" });
+    handleError(res, 404, "User not found");
+    return;
   }
 
   res.status(200).json({
@@ -172,7 +183,8 @@ export const updateUser = asyncHandler(async (req, res) => {
 export const currentUser = asyncHandler(async (req, res) => {
   const user = req?.user;
   if (!user) {
-    return res.status(404).json("User not logged in");
+    handleError(res, 404, "User not logged in");
+    return;
   }
   res.status(200).json(user);
 });
